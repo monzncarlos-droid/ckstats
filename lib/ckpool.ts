@@ -43,7 +43,10 @@ type BtcPowLabSummary = {
 const hashrate = (value: number | null | undefined): string =>
   String(Number.isFinite(value) && Number(value) > 0 ? value : 0);
 
-export const mapBtcPowLabUser = (data: BtcPowLabSummary) => ({
+export const mapBtcPowLabUser = (
+  data: BtcPowLabSummary,
+  address = '',
+) => ({
   authorised: data.connected ? data.generated_at : 0,
   hashrate1m: hashrate(data.current_hashrate_hs),
   hashrate5m: hashrate(data.hashrate_5m_hs),
@@ -56,7 +59,7 @@ export const mapBtcPowLabUser = (data: BtcPowLabSummary) => ({
   bestshare: data.best_share_difficulty ?? '0',
   bestever: data.best_share_difficulty ?? '0',
   worker: (data.workers ?? []).map((worker) => ({
-    workername: worker.name,
+    workername: address ? `${address}.${worker.name}` : worker.name,
     hashrate1m: hashrate(worker.hashrate_5m_hs),
     hashrate5m: hashrate(worker.hashrate_5m_hs),
     hashrate1hr: hashrate(worker.hashrate_1h_hs),
@@ -294,7 +297,7 @@ export class CKPoolAPI {
       const data = JSON.parse(
         await this.api(`/public/v1/miner/${address}/summary`)
       ) as BtcPowLabSummary;
-      return mapBtcPowLabUser(data);
+      return mapBtcPowLabUser(data, address);
     }
     return JSON.parse(await this.api(`/users/${address}`));
   }
@@ -314,17 +317,6 @@ export class CKPoolAPI {
       error?: unknown;
     }>
   > {
-    if (this.apiFlavor === 'btcpowlab') {
-      return Promise.all(
-        addresses.map(async (address) => {
-          try {
-            return { address, userData: await this.user(address) };
-          } catch (error) {
-            return { address, error };
-          }
-        })
-      );
-    }
     await this.http2Ready;
 
     if (this.isHttp2) {

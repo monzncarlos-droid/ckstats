@@ -159,8 +159,49 @@ describe('CKPoolAPI', () => {
                 workers: 1,
                 shares: '14',
                 bestever: '15',
-                worker: [{ workername: 'rig', shares: '17', hashrate1hr: '19' }],
+                worker: [
+                    {
+                        workername: 'bc1qtest.rig',
+                        shares: '17',
+                        hashrate1hr: '19',
+                    },
+                ],
             });
+        });
+
+        it('preserves input order and individual errors for batched address lookups', async () => {
+            process.env.API_URL = 'https://btcpowlab-pool.com';
+            process.env.API_FLAVOR = 'btcpowlab';
+            api = new CKPoolAPI();
+            jest.spyOn(global, 'fetch')
+                .mockResolvedValueOnce({
+                    ok: true,
+                    text: () =>
+                        Promise.resolve(
+                            JSON.stringify({
+                                generated_at: 100,
+                                connected: true,
+                                active_sessions: 0,
+                                accepted_shares: 1,
+                                workers: [],
+                            })
+                        ),
+                } as any)
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 404,
+                    statusText: 'Not Found',
+                    text: () => Promise.resolve(''),
+                } as any);
+
+            const results = await api.users(['bc1qfirst', 'bc1qmissing']);
+
+            expect(results.map((result) => result.address)).toEqual([
+                'bc1qfirst',
+                'bc1qmissing',
+            ]);
+            expect(results[0].userData).toMatchObject({ shares: '1' });
+            expect(results[1].error).toBeInstanceOf(CKPoolError);
         });
     });
 
